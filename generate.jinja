@@ -1,0 +1,15 @@
+{% set valid_roles = ['user', 'system', 'assistant'] %}
+{% set special_roles = ['think', 'tool_call', 'tool_desc', 'tool_result'] %}
+{{ bos_token }}
+{% for message in messages %}
+	{%- if message['role'] in valid_roles -%}
+		{{- "<|im_start|>" -}}{{- message['role'] + "\n\n" -}}
+		{%- if 'loss_token' in message -%} {{- "<|loss_start|>" -}} {%- endif -%}
+		{{- message['content'] -}} 
+		{{- "<|im_end|>" -}}
+		{%- if 'loss_token' in message -%} {{- "<|loss_end|>" -}} {%- endif -%}
+	{% endif %}
+{% endfor %}
+{%- if add_generation_prompt -%}
+{{- "<|im_start|> assistant" + "\n\n" -}}
+{%- endif -%}
