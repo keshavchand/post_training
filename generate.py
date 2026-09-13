@@ -1,23 +1,11 @@
 from contextlib import contextmanager
 from pathlib import Path
-from datetime import datetime
-from glob import glob
-import os
-import time
 from pydantic import BaseModel, TypeAdapter
-
-from transformers import TextIteratorStreamer
 from threading import Thread
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import Dataset, load_dataset
-from torch.nn.attention import SDPBackend, sdpa_kernel
-from torch.utils.data import DataLoader
-from torch.amp import GradScaler
-from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from peft import get_peft_model, LoraConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
 from tokenizer import specialize_tokenizer
 

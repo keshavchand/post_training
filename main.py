@@ -1,20 +1,20 @@
+import os
+import sys
+import time
 from contextlib import contextmanager
-from pathlib import Path
 from datetime import datetime
 from glob import glob
-import os
-import time
+from pathlib import Path
+
 from pydantic import BaseModel, TypeAdapter
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import Dataset, load_dataset
-from torch.nn.attention import SDPBackend, sdpa_kernel
-from torch.utils.data import DataLoader
+from peft import get_peft_model, LoraConfig
 from torch.amp import GradScaler
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from peft import get_peft_model, LoraConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from tokenizer import specialize_tokenizer
 
@@ -30,6 +30,8 @@ class Context:
         self.optimizer = None
         self.scheduler = None
         self.scaler = None
+        self.loss_start = None
+        self.loss_end = None
 
         self.device = 'cuda'
         self.batch_size = 1
@@ -113,7 +115,7 @@ def train_model(ctx: Context, ds: Dataset):
             loss = output.loss / ctx.grad_accumulation_step
 
         # Free input tensors once the forward pass is done to lower peak memory
-        del data, input_ids, labels, attention_mask
+        del input_ids, labels, attention_mask
         scaler.scale(loss).backward()
         if (( idx + 1 ) % ctx.grad_accumulation_step == 0):
             print(f"Run {idx}:", loss.item())
@@ -160,11 +162,17 @@ def checkpoint_manager(
             os.remove(rm_file)
     
     def save_checkpoint(filename):
-        def to_cpu(v):
-            if torch.is_tensor(v):
-                return v.detach().cpu()
+        def to_cpu(obj):
+            if torch.is_tensor(obj):
+                return obj.detach().cpu()
+            elif isinstance(obj, dict):
+                return {k: to_cpu(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [to_cpu(v) for v in obj]
+            elif isinstance(obj, tuple):
+                return tuple(to_cpu(v) for v in obj)
             else:
-                return v
+                return obj
         filename = directory / filename
         # Move state dicts to CPU before saving to free GPU memory during serialization
         model_state = {k: to_cpu(v) for k, v in model.state_dict().items()}
@@ -274,8 +282,6 @@ def main(
     loss_start = loss_start[0]
     loss_end = loss_end[0]
 
-    dataset = load_dataset(sys.argv[1], streaming=True, split='train')
-
     run_id = f"checkpoint_{time.time()}"
     scaler = GradScaler(device)
     
@@ -287,7 +293,6 @@ def main(
         train_model(ctx, dataset)
 
 if __name__ == "__main__":
-    import sys
     print(len(sys.argv))
     if len(sys.argv) != 4:
         print(f"{sys.argv[0]} <model> <checkpoint_dir> <dataset_name>")

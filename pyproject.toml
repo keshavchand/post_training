@@ -1,5 +1,5 @@
 [project]
-name = "Post Training"
+name = "post_training"
 version = "0.1.0"
 description = "Post Training SmolLM-135M"
 readme = "README.md"
@@ -9,7 +9,7 @@ dependencies = [
     "hf-transfer>=0.1.9",
     "peft>=0.20.0",
     "pydantic>=2.13.5",
-    "torch>=2.14.0",
+    "torch==2.13.0",
     "transformers>=5.17.0",
 ]
 

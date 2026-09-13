@@ -71,7 +71,7 @@ def main():
     loss_end = loss_end[0]
 
     dataset = load_dataset(sys.argv[1], streaming=True, split='train')
-    dataset.skip(SKIP)
+    dataset = dataset.skip(SKIP)
 
     chats = []
 
@@ -83,7 +83,6 @@ def main():
             'attention_mask': attention_mask,
         })
         ds.save_to_disk(f'dataset/train/tokenized_{idx}.bin')
-        chats = []
 
     for idx, training in enumerate(dataset):
         idx += SKIP

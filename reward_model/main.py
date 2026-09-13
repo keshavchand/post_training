@@ -72,11 +72,17 @@ class Context:
 
     def save_checkpoint(self, filename):
         print(f"Saving Checkpoint {filename}")
-        def to_cpu(v):
-            if torch.is_tensor(v):
-                return v.detach().cpu()
+        def to_cpu(obj):
+            if torch.is_tensor(obj):
+                return obj.detach().cpu()
+            elif isinstance(obj, dict):
+                return {k: to_cpu(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [to_cpu(v) for v in obj]
+            elif isinstance(obj, tuple):
+                return tuple(to_cpu(v) for v in obj)
             else:
-                return v
+                return obj
         filename = self._directory / filename
         # Move state dicts to CPU before saving to free GPU memory during serialization
         model_state = {k: to_cpu(v) for k, v in self.model.state_dict().items()}
@@ -142,17 +148,17 @@ def read_dataset(ctx, dataset_dir):
 
         return chats
 
-    # max_length = ctx.tokenizer.model_max_length
-    max_length = 50 
+    max_length = ctx.tokenizer.model_max_length
 
     inputs = []
+    items_processed = 0
     for idx, data in enumerate(dataset):
-        ctx.last_processed_entry += 1
         chosen, rejected = data['chosen'], data['rejected']
         inputs.append(process(chosen))
         inputs.append(process(rejected))
+        items_processed += 1
 
-        if len(inputs) % (2 * ctx.batch_size) != 0:
+        if len(inputs) < 2 * ctx.batch_size:
             continue
 
         response = ctx.tokenizer.apply_chat_template(
@@ -160,9 +166,12 @@ def read_dataset(ctx, dataset_dir):
                 add_special_tokens = True,
                 tokenize = True,
                 return_tensors="pt", 
-                padding = True, trucation=True,
+                padding = True, truncation=True,
                 max_length = max_length
             ).to(ctx.device)
+        ctx.last_processed_entry += items_processed
+        items_processed = 0
+        inputs = []
         yield response
 
 
