@@ -1,0 +1,11 @@
+{% set valid_roles = ['user', 'system', 'assistant'] %}
+{% set special_roles = ['think', 'tool_call', 'tool_desc', 'tool_result'] %}
+{{ bos_token }}
+{% for message in messages %}
+	{%- if message['role'] in valid_roles -%}
+		{{- "<|im_start|>" -}}{{- message['role'] + "\n\n" -}}
+		{{- message['content'] -}} 
+		{{- "<|im_end|>" -}}
+	{% endif %}
+{% endfor %}
+{{ eos_token }}
